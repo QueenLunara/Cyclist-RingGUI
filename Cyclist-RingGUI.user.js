@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.3
-// @description  Making money by pickpocketing cyclists with enhanced features!
+// @version      1.4
+// @description  Alerts when targets from the watch list appear in the crimes page.
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
@@ -28,15 +28,6 @@
 
     function isSanitized(text) {
         return /^[a-zA-Z0-9\s-]+$/.test(text);
-    }
-
-    function cleanSavedTargets() {
-        const cleanList = savedTargets.filter(target => isSanitized(target));
-        if (cleanList.length !== savedTargets.length) {
-            savedTargets = cleanList;
-            GM_setValue('savedTargets', savedTargets);
-            console.log("[Cyclist Ring] Removed unsanitized targets from the list.");
-        }
     }
 
     GM_addStyle(`
@@ -65,15 +56,6 @@
             border-radius: 4px;
             font-size: 14px;
             margin-bottom: 8px;
-        }
-        #cyclist-ring-dropdown-menu {
-            display: none;
-            background-color: #1f1f1f;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 8px;
-            margin-top: 4px;
-            overflow-y: auto;
         }
     `);
 
@@ -149,51 +131,27 @@
     }
 
     function checkForTargets() {
-        interceptFetch("torn.com", "/page.php?sid=crimesData", (response) => {
-            const crimes = response.DB.crimesByType;
-            const AIMTARGETS = selectedTargets.length > 0 ? selectedTargets : ['cyclist'];
+        let activeTargets = getActiveTargets();
+        let newTargets = [];
 
-            let newTargets = [];
-
-            getActiveTargets().forEach(target => {
-                if (AIMTARGETS.some(t => target.toLowerCase().includes(t)) && !detectedTargets.has(target)) {
-                    detectedTargets.add(target);
-                    newTargets.push(target);
-                }
-            });
-
-            if (newTargets.length > 0) {
-                playAlert(newTargets);
+        selectedTargets.forEach(target => {
+            if (activeTargets.includes(target) && !detectedTargets.has(target)) {
+                detectedTargets.add(target);
+                newTargets.push(target);
             }
         });
-    }
 
-    function playAlert(targets) {
-        var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
-        audio.play();
-
-        if (enableAlerts) {
-            alert("New target available: " + targets.join(", "));
+        if (newTargets.length > 0) {
+            playAlert(newTargets);
         }
     }
 
-    function interceptFetch(url, q, callback) {
-        const originalFetch = window.fetch;
-        window.fetch = function() {
-            return new Promise((resolve, reject) => {
-                return originalFetch.apply(this, arguments).then(function(data) {
-                    let dataurl = data.url.toString();
-                    if (dataurl.includes(url) && dataurl.includes(q)) {
-                        const clone = data.clone();
-                        if (clone) {
-                            clone.json().then((response) => callback(response))
-                                .catch((error) => console.log("[InterceptFetch] Error with clone.json()", error));
-                        }
-                    }
-                    resolve(data);
-                }).catch((error) => console.log("[InterceptFetch] Error with fetch.", error));
-            });
-        };
+    function playAlert(targets) {
+        if (enableAlerts) {
+            var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
+            audio.play();
+            alert("Target(s) found on the crime page: " + targets.join(", "));
+        }
     }
 
     function observeCrimes() {
@@ -208,7 +166,7 @@
         observer.observe(targetNode, config);
     }
 
-        function waitForElementToExist(selector) {
+    function waitForElementToExist(selector) {
         return new Promise(resolve => {
             if (document.querySelector(selector)) return resolve(document.querySelector(selector));
             const observer = new MutationObserver(() => {
@@ -222,11 +180,9 @@
     }
 
     waitForElementToExist('.pickpocketing-root').then(() => {
-        cleanSavedTargets();
         createPanel();
         observeCrimes();
         setInterval(checkForTargets, 5000);
     });
 
 })();
-
