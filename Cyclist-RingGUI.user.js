@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.6
+// @version      1.7
 // @description  Alerts when targets from the watch list appear in the crimes page.
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
@@ -42,7 +42,7 @@
             width: 250px;
             border-radius: 6px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
-            z-index: 10000;
+            z-index: 999999;
             font-size: 14px;
         }
         #cyclist-ring-panel button {
