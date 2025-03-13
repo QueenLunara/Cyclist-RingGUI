@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.5
+// @version      1.6
 // @description  Alerts when targets from the watch list appear in the crimes page.
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
@@ -102,6 +102,11 @@
         const dropdownMenu = document.getElementById('cyclist-ring-dropdown-menu');
         dropdownMenu.innerHTML = '';
 
+        if (!savedTargets.includes("Cyclist")) {
+            savedTargets.push("Cyclist");
+            GM_setValue('savedTargets', savedTargets);
+        }
+
         activeTargets.forEach(target => {
             if (!savedTargets.includes(target) && isSanitized(target)) {
                 savedTargets.push(target);
@@ -129,6 +134,7 @@
             dropdownMenu.appendChild(option);
         });
     }
+
 
     function checkForTargets() {
         let activeTargets = getActiveTargets();
