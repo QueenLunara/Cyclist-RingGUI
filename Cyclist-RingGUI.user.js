@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @license      MIT
-// @downloadURL  https://gist.github.com/crazy-vedic/raw/cyclist-enhanced.user.js
-// @updateURL    https://gist.github.com/crazy-vedic/raw/cyclist-enhanced.user.js
+// @downloadURL  https://github.com/QueenLunara/Cyclist-RingGUI/raw/refs/heads/main/Cyclist-RingGUI.user.js
+// @updateURL    https://github.com/QueenLunara/Cyclist-RingGUI/raw/refs/heads/main/Cyclist-RingGUI.user.js
 // ==/UserScript==
 
 (function() {
