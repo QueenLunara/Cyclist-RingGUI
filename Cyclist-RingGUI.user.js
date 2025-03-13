@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.2
+// @version      1.3
 // @description  Making money by pickpocketing cyclists with enhanced features!
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
@@ -14,12 +14,30 @@
 // @updateURL    https://github.com/QueenLunara/Cyclist-RingGUI/raw/refs/heads/main/Cyclist-RingGUI.user.js
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
-    const savedTargets = GM_getValue('savedTargets', []);
+    let savedTargets = GM_getValue('savedTargets', []);
     let selectedTargets = GM_getValue('selectedTargets', []);
     let enableAlerts = GM_getValue('enableAlerts', true);
+    let detectedTargets = new Set();
+
+    function sanitizeText(text) {
+        return text.replace(/[^a-zA-Z0-9\s-]/g, "").trim();
+    }
+
+    function isSanitized(text) {
+        return /^[a-zA-Z0-9\s-]+$/.test(text);
+    }
+
+    function cleanSavedTargets() {
+        const cleanList = savedTargets.filter(target => isSanitized(target));
+        if (cleanList.length !== savedTargets.length) {
+            savedTargets = cleanList;
+            GM_setValue('savedTargets', savedTargets);
+            console.log("[Cyclist Ring] Removed unsanitized targets from the list.");
+        }
+    }
 
     GM_addStyle(`
         #cyclist-ring-panel {
@@ -94,7 +112,7 @@
 
     function getActiveTargets() {
         const targetElements = document.querySelectorAll('.crimeOptionWrapper___IOnLO .titleAndProps___DdeVu');
-        return Array.from(targetElements).map(el => el.textContent.split(' (')[0]);
+        return Array.from(targetElements).map(el => sanitizeText(el.textContent.split(' (')[0]));
     }
 
     function updateDropdown() {
@@ -103,7 +121,7 @@
         dropdownMenu.innerHTML = '';
 
         activeTargets.forEach(target => {
-            if (!savedTargets.includes(target)) {
+            if (!savedTargets.includes(target) && isSanitized(target)) {
                 savedTargets.push(target);
                 GM_setValue('savedTargets', savedTargets);
             }
@@ -124,13 +142,10 @@
                 }
                 GM_setValue('selectedTargets', selectedTargets);
                 updateDropdown();
-                checkForTargets();
             });
 
             dropdownMenu.appendChild(option);
         });
-
-        dropdownMenu.style.maxHeight = savedTargets.length > 5 ? 'none' : '200px';
     }
 
     function checkForTargets() {
@@ -138,33 +153,28 @@
             const crimes = response.DB.crimesByType;
             const AIMTARGETS = selectedTargets.length > 0 ? selectedTargets : ['cyclist'];
 
-            if (isAnyTargetAvailable(crimes, AIMTARGETS)) {
-                var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
-                audio.play();
+            let newTargets = [];
 
-                if (enableAlerts) {
-                    alert("Target available: " + AIMTARGETS.join(", "));
+            getActiveTargets().forEach(target => {
+                if (AIMTARGETS.some(t => target.toLowerCase().includes(t)) && !detectedTargets.has(target)) {
+                    detectedTargets.add(target);
+                    newTargets.push(target);
                 }
+            });
 
-                setTimeout(() => {
-                    getActiveTargets().forEach(targetText => {
-                        if (AIMTARGETS.some(t => targetText.toLowerCase().includes(t))) {
-                            console.log(`Highlighting target: ${targetText}`);
-                        }
-                    });
-                }, 1000);
+            if (newTargets.length > 0) {
+                playAlert(newTargets);
             }
         });
     }
 
-    function isAnyTargetAvailable(crimes, targets) {
-        for (let i = 0; i < crimes.length; i++) {
-            const crime = crimes[i];
-            if (targets.some(target => crime.title.toLowerCase().includes(target)) && crime.available === true) {
-                return true;
-            }
+    function playAlert(targets) {
+        var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
+        audio.play();
+
+        if (enableAlerts) {
+            alert("New target available: " + targets.join(", "));
         }
-        return false;
     }
 
     function interceptFetch(url, q, callback) {
@@ -186,7 +196,19 @@
         };
     }
 
-    function waitForElementToExist(selector) {
+    function observeCrimes() {
+        const targetNode = document.querySelector('.pickpocketing-root');
+        if (!targetNode) return;
+
+        const config = { childList: true, subtree: true };
+        const observer = new MutationObserver(() => {
+            checkForTargets();
+        });
+
+        observer.observe(targetNode, config);
+    }
+
+        function waitForElementToExist(selector) {
         return new Promise(resolve => {
             if (document.querySelector(selector)) return resolve(document.querySelector(selector));
             const observer = new MutationObserver(() => {
@@ -200,8 +222,11 @@
     }
 
     waitForElementToExist('.pickpocketing-root').then(() => {
+        cleanSavedTargets();
         createPanel();
+        observeCrimes();
         setInterval(checkForTargets, 5000);
     });
+
 })();
 
