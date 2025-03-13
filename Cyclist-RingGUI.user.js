@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.7
-// @description  Alerts when targets from the watch list appear in the crimes page.
+// @version      1.8
+// @description  Alerts when targets from the watch list appear in the crimes page, based off Cazy's code!
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
@@ -17,17 +17,42 @@
 (function () {
     'use strict';
 
+    let Testclear = false; // Set to true to clear saved lists on start.
+
     let savedTargets = GM_getValue('savedTargets', []);
     let selectedTargets = GM_getValue('selectedTargets', []);
-    let enableAlerts = GM_getValue('enableAlerts', true);
+    let enableAlerts = GM_getValue('enableAlerts', false); // Set to True to enable Browser Alerts
     let detectedTargets = new Set();
 
     function sanitizeText(text) {
-        return text.replace(/[^a-zA-Z0-9\s-]/g, "").trim();
+        return text.split('(')[0].trim().replace(/[^a-zA-Z0-9\s-]/g, "");
     }
 
     function isSanitized(text) {
         return /^[a-zA-Z0-9\s-]+$/.test(text);
+    }
+
+    function cleanSavedTargets() {
+        let cleanedList = savedTargets.map(sanitizeText).filter(isSanitized);
+        cleanedList = [...new Set(cleanedList)];
+
+        if (!cleanedList.includes("Cyclist")) {
+            cleanedList.push("Cyclist");
+        }
+
+        if (JSON.stringify(cleanedList) !== JSON.stringify(savedTargets)) {
+            savedTargets = cleanedList;
+            GM_setValue('savedTargets', savedTargets);
+            console.log("[Cyclist Ring] Cleaned and updated saved targets.");
+        }
+    }
+
+    function clearSavedLists() {
+        if (Testclear) {
+            GM_setValue('savedTargets', []);
+            GM_setValue('selectedTargets', []);
+            console.log("[Cyclist Ring] Cleared saved and selected targets.");
+        }
     }
 
     GM_addStyle(`
@@ -57,6 +82,16 @@
             font-size: 14px;
             margin-bottom: 8px;
         }
+        #cyclist-ring-dropdown-menu {
+            display: none;
+            background-color: #1f1f1f;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 4px;
+            overflow-y: auto;
+            max-height: 200px;
+        }
     `);
 
     function createPanel() {
@@ -66,13 +101,13 @@
             <button id="cyclist-ring-minimize-btn">-</button>
             <div id="cyclist-ring-content">
                 <button id="cyclist-ring-enable-alerts-btn">${enableAlerts ? "Disable Alerts" : "Enable Alerts"}</button>
-                <div id="cyclist-ring-dropdown-box">Select Targets</div>
+                <button id="cyclist-ring-select-targets-btn">Select Targets</button>
                 <div id="cyclist-ring-dropdown-menu"></div>
             </div>
         `;
         document.body.appendChild(panel);
 
-        document.getElementById('cyclist-ring-dropdown-box').addEventListener('click', () => {
+        document.getElementById('cyclist-ring-select-targets-btn').addEventListener('click', () => {
             const dropdownMenu = document.getElementById('cyclist-ring-dropdown-menu');
             dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
         });
@@ -93,23 +128,23 @@
     }
 
     function getActiveTargets() {
-        const targetElements = document.querySelectorAll('.crimeOptionWrapper___IOnLO .titleAndProps___DdeVu');
-        return Array.from(targetElements).map(el => sanitizeText(el.textContent.split(' (')[0]));
+        const targetElements = document.querySelectorAll('.titleAndProps___DdeVu');
+        return Array.from(targetElements).map(el => {
+            let mainDiv = el.querySelector('div');
+            return mainDiv ? sanitizeText(mainDiv.textContent) : null;
+        }).filter(Boolean);
     }
 
+
     function updateDropdown() {
-        const activeTargets = getActiveTargets();
+        cleanSavedTargets();
         const dropdownMenu = document.getElementById('cyclist-ring-dropdown-menu');
         dropdownMenu.innerHTML = '';
 
-        if (!savedTargets.includes("Cyclist")) {
-            savedTargets.push("Cyclist");
-            GM_setValue('savedTargets', savedTargets);
-        }
-
-        activeTargets.forEach(target => {
-            if (!savedTargets.includes(target) && isSanitized(target)) {
-                savedTargets.push(target);
+        getActiveTargets().forEach(target => {
+            let cleanTarget = sanitizeText(target);
+            if (!savedTargets.includes(cleanTarget) && isSanitized(cleanTarget)) {
+                savedTargets.push(cleanTarget);
                 GM_setValue('savedTargets', savedTargets);
             }
         });
@@ -117,8 +152,6 @@
         savedTargets.forEach(target => {
             const option = document.createElement('div');
             option.textContent = target;
-            option.style.padding = '4px';
-            option.style.cursor = 'pointer';
             option.style.backgroundColor = selectedTargets.includes(target) ? '#4CAF50' : 'transparent';
 
             option.addEventListener('click', () => {
@@ -134,7 +167,6 @@
             dropdownMenu.appendChild(option);
         });
     }
-
 
     function checkForTargets() {
         let activeTargets = getActiveTargets();
@@ -173,7 +205,7 @@
         observer.observe(targetNode, config);
     }
 
-    function waitForElementToExist(selector) {
+        function waitForElementToExist(selector) {
         return new Promise(resolve => {
             if (document.querySelector(selector)) return resolve(document.querySelector(selector));
             const observer = new MutationObserver(() => {
@@ -187,6 +219,8 @@
     }
 
     waitForElementToExist('.pickpocketing-root').then(() => {
+        clearSavedLists();
+        cleanSavedTargets();
         createPanel();
         observeCrimes();
         setInterval(checkForTargets, 5000);
