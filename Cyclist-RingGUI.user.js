@@ -21,7 +21,7 @@
 
     let savedTargets = GM_getValue('savedTargets', []);
     let selectedTargets = GM_getValue('selectedTargets', []);
-    let enableAlerts = GM_getValue('enableAlerts', false);
+    let enableAlerts = GM_getValue('enableAlerts', true);
     let detectedTargets = new Set();
     let audioUnlocked = false;
 
