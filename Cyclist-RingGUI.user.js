@@ -1,13 +1,15 @@
 // ==UserScript==
-// @name         Cyclist Ring Enhanced for TornPDA
+// @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      2.1
+// @version      2.0
 // @description  Alerts when targets from the watch list appear in the crimes page, based off Cazy's code!
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
 // @match        https://www.torn.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
-// @grant        none
+// @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @license      MIT
 // @downloadURL  https://github.com/QueenLunara/Cyclist-RingGUI/raw/refs/heads/main/Cyclist-RingGUI.user.js
 // @updateURL    https://github.com/QueenLunara/Cyclist-RingGUI/raw/refs/heads/main/Cyclist-RingGUI.user.js
@@ -18,11 +20,11 @@
 
     let Testclear = false; // Set to true to clear saved lists on start.
 
-    let savedTargets = JSON.parse(localStorage.getItem('savedTargets') || '[]');
-    let selectedTargets = JSON.parse(localStorage.getItem('selectedTargets') || '[]');
-    let enableAlerts = JSON.parse(localStorage.getItem('enableAlerts') || false);
+    let savedTargets = GM_getValue('savedTargets', []);
+    let selectedTargets = GM_getValue('selectedTargets', []);
+    let enableAlerts = GM_getValue('enableAlerts', false);
     let detectedTargets = new Set();
-    let audioUnlocked = JSON.parse(localStorage.getItem('audioUnlocked') || false);
+    let audioUnlocked = GM_getValue('audioUnlocked', false);
 
     function sanitizeText(text) {
         return text.split('(')[0].trim().replace(/[^a-zA-Z0-9\s-]/g, "");
@@ -42,32 +44,33 @@
 
         if (JSON.stringify(cleanedList) !== JSON.stringify(savedTargets)) {
             savedTargets = cleanedList;
-            localStorage.setItem('savedTargets', JSON.stringify(savedTargets));
+            GM_setValue('savedTargets', savedTargets);
+            console.log("[Cyclist Ring] Cleaned and updated saved targets.");
         }
     }
 
     function clearSavedLists() {
         if (Testclear) {
-            localStorage.removeItem('savedTargets');
-            localStorage.removeItem('selectedTargets');
+            GM_setValue('savedTargets', []);
+            GM_setValue('selectedTargets', []);
+            console.log("[Cyclist Ring] Cleared saved and selected targets.");
         }
     }
 
-    const style = document.createElement('style');
-    style.textContent = `
+    GM_addStyle(`
         #cyclist-ring-panel {
             position: fixed;
-            top: 10px;
-            left: 10px;
+            top: 50px;
+            left: 5px;
             padding: 8px;
             border: 2px solid #444;
             background-color: #1f1f1f;
             color: white;
-            width: 200px;
+            width: 250px;
             border-radius: 6px;
             box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
             z-index: 999999;
-            font-size: 12px;
+            font-size: 14px;
         }
         #cyclist-ring-panel button {
             padding: 6px;
@@ -78,7 +81,7 @@
             cursor: pointer;
             width: 100%;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 14px;
             margin-bottom: 8px;
         }
         #cyclist-ring-dropdown-menu {
@@ -89,12 +92,12 @@
             padding: 8px;
             margin-top: 4px;
             overflow-y: auto;
-            max-height: 150px;
+            max-height: 200px;
         }
-    `;
-    document.head.appendChild(style);
+    `);
 
     function createPanel() {
+        console.log("[Cyclist Ring] Creating panel...");
         const panel = document.createElement('div');
         panel.id = 'cyclist-ring-panel';
         panel.innerHTML = `
@@ -106,6 +109,7 @@
             </div>
         `;
         document.body.appendChild(panel);
+        console.log("[Cyclist Ring] Panel created and appended to body.");
 
         document.getElementById('cyclist-ring-select-targets-btn').addEventListener('click', () => {
             const dropdownMenu = document.getElementById('cyclist-ring-dropdown-menu');
@@ -120,7 +124,7 @@
 
         document.getElementById('cyclist-ring-enable-alerts-btn').addEventListener('click', () => {
             enableAlerts = !enableAlerts;
-            localStorage.setItem('enableAlerts', JSON.stringify(enableAlerts));
+            GM_setValue('enableAlerts', enableAlerts);
             document.getElementById('cyclist-ring-enable-alerts-btn').textContent = enableAlerts ? "Disable Alerts" : "Enable Alerts";
         });
 
@@ -144,7 +148,7 @@
             let cleanTarget = sanitizeText(target);
             if (!savedTargets.includes(cleanTarget) && isSanitized(cleanTarget)) {
                 savedTargets.push(cleanTarget);
-                localStorage.setItem('savedTargets', JSON.stringify(savedTargets));
+                GM_setValue('savedTargets', savedTargets);
             }
         });
 
@@ -159,7 +163,7 @@
                 } else {
                     selectedTargets.push(target);
                 }
-                localStorage.setItem('selectedTargets', JSON.stringify(selectedTargets));
+                GM_setValue('selectedTargets', selectedTargets);
                 updateDropdown();
             });
 
@@ -185,11 +189,14 @@
 
     function playAlert(targets) {
         if (!audioUnlocked) {
+            console.log("[Cyclist Ring] Audio alerts are disabled. Please refocus the page and enable them.");
             return;
         }
 
         var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
-        audio.play().catch(error => {});
+        audio.play().catch(error => {
+            console.error("[Cyclist Ring] Audio playback failed:", error);
+        });
 
         if (enableAlerts) {
             alert("Target(s) found on the crime page: " + targets.join(", "));
@@ -211,10 +218,12 @@
     function waitForElementToExist(selector) {
         return new Promise(resolve => {
             if (document.querySelector(selector)) {
+                console.log(`[Cyclist Ring] Element "${selector}" already exists.`);
                 return resolve(document.querySelector(selector));
             }
             const observer = new MutationObserver(() => {
                 if (document.querySelector(selector)) {
+                    console.log(`[Cyclist Ring] Element "${selector}" found.`);
                     resolve(document.querySelector(selector));
                     observer.disconnect();
                 }
@@ -227,20 +236,26 @@
         if (document.visibilityState === 'visible' && !audioUnlocked) {
             if (confirm("Click OK to enable audio alerts.")) {
                 audioUnlocked = true;
-                localStorage.setItem('audioUnlocked', JSON.stringify(audioUnlocked));
+                GM_setValue('audioUnlocked', true);
+                console.log("[Cyclist Ring] Audio alerts unlocked.");
             }
         }
     });
 
     if (window.location.href.includes('https://www.torn.com/loader.php?sid=crimes')) {
+        console.log("[Cyclist Ring] Crimes page detected. Initializing...");
         waitForElementToExist('.pickpocketing-root').then(() => {
+            console.log("[Cyclist Ring] .pickpocketing-root element found. Proceeding to create panel...");
             clearSavedLists();
             cleanSavedTargets();
             createPanel();
             observeCrimes();
-            setInterval(checkForTargets, 2000);
-        }).catch(error => {});
+            setInterval(checkForTargets, 5000);
+        }).catch(error => {
+            console.error("[Cyclist Ring] Error waiting for .pickpocketing-root:", error);
+        });
     } else {
+        console.log("[Cyclist Ring] Not on the crimes page.");
         if (!audioUnlocked) {
             alert("Audio alerts are disabled. Please visit the crimes page to enable them.");
         }
