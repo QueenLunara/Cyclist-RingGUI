@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cyclist Ring Enhanced
 // @namespace    cazy.torn.ring
-// @version      1.8
+// @version      1.9
 // @description  Alerts when targets from the watch list appear in the crimes page, based off Cazy's code!
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
@@ -21,8 +21,9 @@
 
     let savedTargets = GM_getValue('savedTargets', []);
     let selectedTargets = GM_getValue('selectedTargets', []);
-    let enableAlerts = GM_getValue('enableAlerts', false); // Set to True to enable Browser Alerts
+    let enableAlerts = GM_getValue('enableAlerts', false);
     let detectedTargets = new Set();
+    let audioUnlocked = false;
 
     function sanitizeText(text) {
         return text.split('(')[0].trim().replace(/[^a-zA-Z0-9\s-]/g, "");
@@ -135,7 +136,6 @@
         }).filter(Boolean);
     }
 
-
     function updateDropdown() {
         cleanSavedTargets();
         const dropdownMenu = document.getElementById('cyclist-ring-dropdown-menu');
@@ -185,8 +185,15 @@
     }
 
     function playAlert(targets) {
+        if (!audioUnlocked) {
+            console.log("[Cyclist Ring] Audio alerts are disabled. Please refocus the page and enable them.");
+            return;
+        }
+
         var audio = new Audio('https://audio.jukehost.co.uk/gxd2HB9RibSHhr13OiW6ROCaaRbD8103');
-        audio.play();
+        audio.play().catch(error => {
+            console.error("[Cyclist Ring] Audio playback failed:", error);
+        });
 
         if (enableAlerts) {
             alert("Target(s) found on the crime page: " + targets.join(", "));
@@ -205,7 +212,7 @@
         observer.observe(targetNode, config);
     }
 
-        function waitForElementToExist(selector) {
+    function waitForElementToExist(selector) {
         return new Promise(resolve => {
             if (document.querySelector(selector)) return resolve(document.querySelector(selector));
             const observer = new MutationObserver(() => {
@@ -217,6 +224,15 @@
             observer.observe(document.body, { subtree: true, childList: true });
         });
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !audioUnlocked) {
+            if (confirm("Click OK to enable audio alerts.")) {
+                audioUnlocked = true;
+                console.log("[Cyclist Ring] Audio alerts unlocked.");
+            }
+        }
+    });
 
     waitForElementToExist('.pickpocketing-root').then(() => {
         clearSavedLists();
