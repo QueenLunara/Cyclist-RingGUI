@@ -238,7 +238,7 @@
             cleanSavedTargets();
             createPanel();
             observeCrimes();
-            setInterval(checkForTargets, 5000);
+            setInterval(checkForTargets, 2000);
         }).catch(error => {});
     } else {
         if (!audioUnlocked) {
