@@ -5,7 +5,7 @@
 // @description  Alerts when targets from the watch list appear in the crimes page, based off Cazy's code!
 // @author       Cazylecious and QueenLunara
 // @match        https://www.torn.com/loader.php?sid=crimes
-// @match        *://*/*
+// @match        https://www.torn.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @grant        GM_addStyle
 // @grant        GM_getValue
